@@ -1,0 +1,293 @@
+buildscript {
+    repositories {
+        // These repositories are only for Gradle plugins, put any other repositories in the repository block further below
+        maven { url = 'https://repo.spongepowered.org/repository/maven-public/' }
+        mavenCentral()
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'org.spongepowered:mixingradle:0.7-SNAPSHOT'
+    }
+}
+
+plugins {
+    id 'eclipse'
+    id 'idea'
+    id 'net.minecraftforge.gradle' version '[6.0.16,6.2)'
+    id "com.github.johnrengelman.shadow" version "8.1.+"
+    id 'org.parchmentmc.librarian.forgegradle' version '1.+'
+    id "com.modrinth.minotaur" version "2.+"
+}
+
+apply plugin: 'org.spongepowered.mixin'
+
+group = mod_group_id
+version = "${minecraft_version}-${mod_version}"
+
+base {
+    archivesName = mod_id
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(17)
+    toolchain.vendor.set(JvmVendorSpec.JETBRAINS)
+}
+
+def libraryConfigs = new HashSet<Configuration>()
+configurations { configContainer ->
+    sourceSets.each { sourceSet ->
+        def configName = sourceSet.getTaskName(null, "forgeLibrary")
+        def implementationConfigName = sourceSet.getTaskName(null, "implementation")
+        def libraryConfig = configContainer.maybeCreate(configName)
+        def implementationConfig = configContainer.maybeCreate(implementationConfigName)
+        implementationConfig.extendsFrom libraryConfig
+        libraryConfigs.add(libraryConfig)
+    }
+
+    compile.extendsFrom shadow
+}
+
+minecraft {
+    mappings channel: mapping_channel, version: mapping_version
+
+    // When true, this property will have all Eclipse/IntelliJ IDEA run configurations run the "prepareX" task for the given run configuration before launching the game.
+    // In most cases, it is not necessary to enable.
+    // enableEclipsePrepareRuns = true
+    // enableIdeaPrepareRuns = true
+
+    // This property allows configuring Gradle's ProcessResources task(s) to run on IDE output locations before launching the game.
+    // It is REQUIRED to be set to true for this template to function.
+    // See https://docs.gradle.org/current/dsl/org.gradle.language.jvm.tasks.ProcessResources.html
+    copyIdeResources = true
+
+    // When true, this property will add the folder name of all declared run configurations to generated IDE run configurations.
+    // The folder name can be set on a run configuration using the "folderName" property.
+    // By default, the folder name of a run configuration is the name of the Gradle project containing it.
+    // generateRunFolders = true
+
+    accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
+
+    // Default run configurations.
+    // These can be tweaked, removed, or duplicated as needed.
+    runs { runSpecContainer ->
+        // applies to all the run configs below
+        configureEach {
+            workingDirectory project.file('run')
+
+            // Recommended logging data for a userdev environment
+            // The markers can be added/remove as needed separated by commas.
+            // "SCAN": For mods scan.
+            // "REGISTRIES": For firing of registry events.
+            // "REGISTRYDUMP": For getting the contents of all registries.
+            property 'forge.logging.markers', 'REGISTRIES'
+            jvmArgs "-Dmixin.env.disableRefMap=true"
+
+            if(project.javaToolchains.launcherFor(java.toolchain).map{it.metadata.vendor }.getOrElse("").contains("JetBrains")) {
+                jvmArg("-XX:+AllowEnhancedClassRedefinition")
+            }
+
+
+            // Recommended logging level for the console
+            // You can set various levels here.
+            // Please read: https://stackoverflow.com/questions/2031163/when-to-use-the-different-log-levels
+            property 'forge.logging.console.level', 'debug'
+
+            mods {
+                "${mod_id}" {
+                    source sourceSets.main
+                }
+            }
+        }
+
+        client {
+            // Comma-separated list of namespaces to load gametests from. Empty = all namespaces.
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        server {
+            property 'forge.enabledGameTestNamespaces', mod_id
+            args '--nogui'
+        }
+
+        // This run config launches GameTestServer and runs all registered gametests, then exits.
+        // By default, the server will crash when no gametests are provided.
+        // The gametest system is also enabled by default for other run configs under the /test command.
+        gameTestServer {
+            property 'forge.enabledGameTestNamespaces', mod_id
+        }
+
+        data {
+            // example of overriding the workingDirectory set in configureEach above
+            workingDirectory project.file('run-data')
+
+            // Specify the modid for data generation, where to output the resulting resource, and where to look for existing resources.
+            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
+        }
+
+        project.afterEvaluate {
+            def paths = new HashSet<String>()
+            libraryConfigs.each { config ->
+                config.copyRecursive().resolve().collect {
+                    it.absolutePath.toString()
+                }.each { path ->
+                    paths.add(path)
+                }
+            }
+            runSpecContainer.each { runSpec ->
+                runSpec.lazyToken('minecraft_classpath') {
+                    paths.join(File.pathSeparator)
+                }
+                runSpec
+            }
+        }
+    }
+}
+
+/*
+mixin {
+    add sourceSets.main, "${mod_id}.refmap.json"
+
+    config "${mod_id}.mixins.json"
+}
+*/
+
+//jarJar.enable()
+
+reobf {
+    //jarJar { }
+    shadowJar {}
+    jar { libraries.from(sourceSets.main.compileClasspath) }
+}
+
+//tasks.jarJar.finalizedBy('reobfJarJar')
+
+// Include resources generated by data generators.
+sourceSets.main.resources { srcDir 'src/generated/resources' }
+
+repositories {
+    maven {
+        url "https://maven.tterrag.com/"
+    }
+    maven {
+        url "https://cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        // Shedaniel's maven (Architectury API)
+        url "https://maven.architectury.dev"
+        content {
+            includeGroup "dev.architectury"
+        }
+    }
+    maven { url "https://maven.shedaniel.me/" }
+    maven {
+        // saps.dev Maven (KubeJS and Rhino)
+        url "https://maven.saps.dev/releases"
+        content {
+            includeGroup "dev.latvian.mods"
+        }
+    }
+    maven {
+        // location of the maven that hosts JEI files since January 2023
+        name = "Jared's maven"
+        url = "https://maven.blamejared.com/"
+    }
+}
+
+dependencies {
+    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
+
+    implementation fg.deobf("com.simibubi.create:create-${minecraft_version}:${create_version}:slim"){transitive = false}
+    implementation fg.deobf("com.jozufozu.flywheel:flywheel-forge-${minecraft_version}:${flywheel_version}")
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    implementation fg.deobf("com.tterrag.registrate:Registrate:${registrate_version}")
+    implementation fg.deobf("curse.maven:vintageimprovements-946579:5210692")
+
+    // ForgeGradle
+    implementation fg.deobf("dev.latvian.mods:kubejs-forge:${kubejs_version}")
+
+    // these two are unfortunately needed since fg.deobf doesn't respect transitive dependencies yet
+    implementation fg.deobf("dev.latvian.mods:rhino-forge:${rhino_version}")
+    implementation fg.deobf("dev.architectury:architectury-forge:${architectury_version}")
+
+    var jei_version = "15.3.0.7"
+    runtimeOnly(fg.deobf("mezz.jei:jei-${minecraft_version}-forge:${jei_version}"))
+
+    //jarJar(group: 'com.tterrag.registrate', name: 'Registrate', version: "[MC1.19.3-1.1.10,)")
+
+    forgeLibrary group: "org.apache.commons", name: "commons-math3", version: "3.6.1"
+    shadow group: "org.apache.commons", name: "commons-math3", version: "3.6.1"
+}
+
+tasks.named('processResources', ProcessResources).configure {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+
+    var replaceProperties = [
+            minecraft_version: minecraft_version, minecraft_version_range: minecraft_version_range,
+            forge_version: forge_version, forge_version_range: forge_version_range,
+            loader_version_range: loader_version_range,
+            mod_id: mod_id, mod_name: mod_name, mod_license: mod_license, mod_version: mod_version,
+            mod_authors: mod_authors, mod_description: mod_description,
+    ]
+
+    inputs.properties replaceProperties
+
+    filesMatching(['META-INF/mods.toml', 'pack.mcmeta']) {
+        expand replaceProperties + [project: project]
+    }}
+
+// Example for how to get properties into the manifest for reading at runtime.
+jar {
+    from([sourceSets.main.output])
+    manifest {
+        attributes([
+                "Specification-Title": mod_id,
+                "Specification-Vendor": mod_authors,
+                "Specification-Version": "1", // We are version 1 of ourselves
+                "Implementation-Title": project.name,
+                "Implementation-Version": project.jar.archiveVersion,
+                "Implementation-Vendor": mod_authors,
+                "Implementation-Timestamp": new Date().format("yyyy-MM-dd'T'HH:mm:ssZ")
+        ])
+    }
+    archiveClassifier.set("jar")
+    afterEvaluate { finalizedBy reobfJar }
+}
+
+build.dependsOn shadowJar
+
+shadowJar {
+    //Note: We use the include duplicate strategy instead of FAIL as minimize causes
+    // the things to get "added" twice but it is filtered separately by the shadow
+    // plugin anyways
+    //configurations = [project.configurations.shadow, project.configurations.compileClasspath]
+    duplicatesStrategy(DuplicatesStrategy.INCLUDE)
+    archiveClassifier.set("universal") // Replace the default JAR
+    dependsOn(classes)
+    from([sourceSets.main.output])
+
+    // Only shadow apache commons-math3
+    dependencies {
+        include dependency('org.apache.commons:commons-math3:.*')
+    }
+    exclude('assets/org/**')
+    exclude('META-INF/maven/**')
+    exclude('META-INF/*.txt')
+    // Relocate apache commons-math3 to prevent conflicts with other mods that include it
+    //hippity hoppity your code is now my property @Robocraft999/TraidingNetwork
+    relocate 'org.apache.commons.math3', 'com.darudas.daruairforge.shaded.org.apache.commons.math3'
+    // Minimize the required files so we only include what is needed
+    minimize {
+        include dependency('org.apache.commons:commons-math3:.*')
+    }
+    afterEvaluate { finalizedBy reobfShadowJar }
+}
+
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
