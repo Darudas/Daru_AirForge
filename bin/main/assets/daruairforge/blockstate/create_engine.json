@@ -1,0 +1,5 @@
+{
+  "variants": {
+    "": { "model": "daruairforge:block/create_engine" }
+  }
+}
