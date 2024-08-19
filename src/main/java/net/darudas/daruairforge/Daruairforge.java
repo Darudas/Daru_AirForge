@@ -2,6 +2,8 @@ package net.darudas.daruairforge;
 
 import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.item.CreativeModeTabs;
@@ -9,6 +11,14 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.state.BlockBehaviour;
 import net.minecraft.world.level.material.MapColor;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.client.Minecraft;
+import com.simibubi.create.foundation.data.CreateRegistrate;
+import com.simibubi.create.foundation.item.ItemDescription;
+import com.simibubi.create.foundation.item.KineticStats;
+import com.simibubi.create.foundation.item.TooltipHelper;
+import com.simibubi.create.foundation.item.TooltipModifier;
+import com.tterrag.registrate.util.entry.RegistryEntry;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.BuildCreativeModeTabContentsEvent;
@@ -25,6 +35,7 @@ import net.minecraftforge.registries.DeferredRegister;
 import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
+import net.minecraft.world.level.block.entity.BlockEntityType;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(net.darudas.daruairforge.Daruairforge.MODID)
@@ -40,16 +51,29 @@ public class Daruairforge {
     public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
     // Create a Deferred Register to hold CreativeModeTabs which will all be registered under the "examplemod" namespace
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
+    // Create a Deferred Register to hold BlockEntityTypes which will all be registered under the "daruairforge" namespace
+    public static final DeferredRegister<BlockEntityType<?>> BLOCK_ENTITIES = DeferredRegister.create(ForgeRegistries.BLOCK_ENTITY_TYPES, MODID);
 
-    public static final RegistryObject<Block> CREATE_ENGINE_BLOCK = BLOCKS.register("create_engine", () -> new Block(BlockBehaviour.Properties.of().mapColor(MapColor.STONE)));
-    public static final RegistryObject<Item> CREATE_ENGINE_BLOCK_ITEM = ITEMS.register("create_engine", () -> new BlockItem(CREATE_ENGINE_BLOCK.get(), new Item.Properties()));
+    // Zuerst den Block registrieren
+    public static final RegistryObject<Block> CREATE_ENGINE = BLOCKS.register("create_engine",
+            () -> new CreateEngineBlock(BlockBehaviour.Properties.copy(Blocks.IRON_BLOCK).strength(3.5F).requiresCorrectToolForDrops()));
 
-    public static final RegistryObject<CreativeModeTab> EXAMPLE_TAB = CREATIVE_MODE_TABS.register("example_tab", () -> CreativeModeTab.builder()
-            .withTabsBefore(CreativeModeTabs.COMBAT)
-            .icon(() -> CREATE_ENGINE_BLOCK_ITEM.get().getDefaultInstance())
-            .displayItems((parameters, output) -> {
-                output.accept(CREATE_ENGINE_BLOCK_ITEM.get());
-            }).build());
+    // Dann das BlockItem
+    public static final RegistryObject<Item> CREATE_ENGINE_ITEM = ITEMS.register("create_engine",
+            () -> new BlockItem(CREATE_ENGINE.get(), new Item.Properties()));
+
+    // Zuletzt den Creative Tab
+    public static final RegistryObject<CreativeModeTab> DARUAIRFORGE_TAB = CREATIVE_MODE_TABS.register("daruairforge_tab", () ->
+            CreativeModeTab.builder()
+                    .icon(() -> CREATE_ENGINE_ITEM.get().getDefaultInstance())
+                    .title(Component.translatable("itemGroup.daruairforge"))
+                    .displayItems((parameters, output) -> {
+                        output.accept(CREATE_ENGINE_ITEM.get());
+                    })
+                    .build());
+
+    public static final RegistryObject<BlockEntityType<CreateEngineBlockEntity>> CREATE_ENGINE_BE = BLOCK_ENTITIES.register("create_engine",
+            () -> BlockEntityType.Builder.of(CreateEngineBlockEntity::new, CREATE_ENGINE.get()).build(null));
 
     public Daruairforge() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -63,12 +87,11 @@ public class Daruairforge {
         ITEMS.register(modEventBus);
         // Register the Deferred Register to the mod event bus so tabs get registered
         CREATIVE_MODE_TABS.register(modEventBus);
+        // Register the Deferred Register to the mod event bus so block entities get registered
+        BLOCK_ENTITIES.register(modEventBus);
 
         // Register ourselves for server and other game events we are interested in
         MinecraftForge.EVENT_BUS.register(this);
-
-        // Register the item to a creative tab
-        modEventBus.addListener(this::addCreative);
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
@@ -77,11 +100,6 @@ public class Daruairforge {
     private void commonSetup(final FMLCommonSetupEvent event) {
         // Some common setup code
         LOGGER.info("HELLO FROM COMMON SETUP");
-    }
-
-    private void addCreative(BuildCreativeModeTabContentsEvent event) {
-        if (event.getTabKey() == CreativeModeTabs.BUILDING_BLOCKS)
-            event.accept(CREATE_ENGINE_BLOCK_ITEM);
     }
 
     // You can use SubscribeEvent and let the Event Bus discover methods to call
@@ -97,8 +115,9 @@ public class Daruairforge {
 
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
-            // Some client setup code
-            LOGGER.info("HELLO FROM CLIENT SETUP");
+            event.enqueueWork(() -> {
+                BlockEntityRenderers.register(ModBlocks.CREATE_ENGINE_BE.get(), CreateEngineRenderer::new);
+            });
         }
     }
 }

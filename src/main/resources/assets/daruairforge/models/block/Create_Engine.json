@@ -1,13 +1,13 @@
 {
 	"credit": "Made with Blockbench by Darudas",
 	"textures": {
-		"6": "create_daruairforge_tech:block/CreateEngine/andesite",
-		"7": "darutectury:block/CreateEngine/Gauge_pointer",
-		"opening": "Daru_AirForge:block/CreateEngine/gearbox",
-		"1_1": "create_daruairforge_tech:block/CreateEngine/axis_top",
-		"1_0": "create_daruairforge_tech:block/CreateEngine/axis",
-		"particle": "create_daruairforge_tech:block/CreateEngine/andesite_casing",
-		"casing": "create_daruairforge_tech:block/CreateEngine/andesite_casing"
+		"6": "daruairforge:block/create_engine/andesite",
+		"7": "daruairforge:block/create_engine/gauge_pointer",
+		"opening": "daruairforge:block/create_engine/gearbox",
+		"1_1": "daruairforge:block/create_engine/axis_top",
+		"1_0": "daruairforge:block/create_engine/axis",
+		"particle": "daruairforge:block/create_engine/andesite_casing",
+		"casing": "daruairforge:block/create_engine/andesite_casing"
 	},
 	"elements": [
 		{
