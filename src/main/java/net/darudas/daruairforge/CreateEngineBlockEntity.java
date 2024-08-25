@@ -1,5 +1,6 @@
 package net.darudas.daruairforge;
 
+import com.simibubi.create.content.kinetics.BlockStressValues;
 import com.simibubi.create.content.kinetics.base.KineticBlockEntity;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.block.entity.BlockEntityType;
@@ -12,14 +13,12 @@ public class CreateEngineBlockEntity extends KineticBlockEntity {
     }
 
     @Override
-    public float getGeneratedSpeed() {
-        // Hier implementieren Sie die Logik für die Geschwindigkeitserzeugung
-        return 32; // Beispielwert
+    public float calculateStressApplied() {
+        return BlockStressValues.getImpactFor(KineticBlockEntityType.MECHANICAL_PRESS);
     }
 
     @Override
-    public float calculateStressApplied() {
-        // Hier implementieren Sie die Logik für die Stressberechnung
-        return 4; // Beispielwert
+    public float getGeneratedSpeed() {
+        return 32; // Example speed value
     }
 }

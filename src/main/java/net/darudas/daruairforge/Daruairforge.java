@@ -1,6 +1,7 @@
 package net.darudas.daruairforge;
 
 import com.mojang.logging.LogUtils;
+import com.simibubi.create.content.kinetics.BlockStressValues;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
@@ -36,6 +37,8 @@ import net.minecraftforge.registries.ForgeRegistries;
 import net.minecraftforge.registries.RegistryObject;
 import org.slf4j.Logger;
 import net.minecraft.world.level.block.entity.BlockEntityType;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderers;
+import net.darudas.daruairforge.CreateEngineRenderer;
 
 // The value here should match an entry in the META-INF/mods.toml file
 @Mod(net.darudas.daruairforge.Daruairforge.MODID)
@@ -95,6 +98,8 @@ public class Daruairforge {
 
         // Register our mod's ForgeConfigSpec so that Forge can create and load the config file for us
         ModLoadingContext.get().registerConfig(ModConfig.Type.COMMON, Config.SPEC);
+
+        BlockStressValues.register(CREATE_ENGINE.get(), BlockStressValues.getImpactFor(KineticBlockEntityType.MECHANICAL_PRESS));
     }
 
     private void commonSetup(final FMLCommonSetupEvent event) {
@@ -116,7 +121,7 @@ public class Daruairforge {
         @SubscribeEvent
         public static void onClientSetup(FMLClientSetupEvent event) {
             event.enqueueWork(() -> {
-                BlockEntityRenderers.register(ModBlocks.CREATE_ENGINE_BE.get(), CreateEngineRenderer::new);
+                BlockEntityRenderers.register(CREATE_ENGINE_BE.get(), CreateEngineRenderer::new);
             });
         }
     }
